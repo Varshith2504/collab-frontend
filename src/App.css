@@ -1,0 +1,19 @@
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:'Segoe UI',sans-serif;
+}
+
+body{
+background:#f4f6fb;
+color:#333;
+}
+
+/* CONTAINER */
+
+.container{
+width:90%;
+max-width:1200px;
+margin:auto;
+}
