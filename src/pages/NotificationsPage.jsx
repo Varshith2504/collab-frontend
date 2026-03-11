@@ -50,7 +50,7 @@ export default function NotificationsPage({ user }) {
   const fetchNotifs = useCallback(async () => {
     setLoading(true);
     try {
-      const projRes  = await fetch("http://localhost:8080/projects");
+      const projRes = await fetch(`${BASE_URL}/projects`);
       const allProjs = await projRes.json();
       const mine     = allProjs.filter(p => p.owner === user.email);
 
@@ -59,7 +59,7 @@ export default function NotificationsPage({ user }) {
       await Promise.all(mine.map(async (p) => {
         try {
           /* Pending join requests → "join_request" notification */
-          const reqRes = await fetch(`http://localhost:8080/projects/${p.id}/requests`);
+          const reqRes  = await fetch(`${BASE_URL}/projects/${p.id}/requests`);
           const reqs   = await reqRes.json();
           reqs.forEach(r => {
             fresh.push({
@@ -88,7 +88,7 @@ export default function NotificationsPage({ user }) {
 
           /* Current accepted members → "accepted" notification */
           try {
-            const memRes = await fetch(`http://localhost:8080/projects/${p.id}/members`);
+            const memRes  = await fetch(`${BASE_URL}/projects/${p.id}/members`);
             const members = await memRes.json();
             members.forEach(m => {
               fresh.push({
