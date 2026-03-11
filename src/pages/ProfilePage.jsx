@@ -34,6 +34,11 @@ export default function ProfilePage({ user, onUpdateUser }) {
       }).catch(() => {});
   }, [user.email]);
 
+  // Add this useEffect in ProfilePage
+useEffect(() => {
+  setForm({ name: user.name || "", skill: user.skill || "", bio: user.bio || "" });
+}, [user.id]); // re-sync when user changes
+
   const handle = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const saveProfile = async () => {
@@ -45,8 +50,13 @@ export default function ProfilePage({ user, onUpdateUser }) {
         body: JSON.stringify({ ...user, name: form.name, skill: form.skill, bio: form.bio })
       });
       if (!res.ok) throw new Error("Failed");
-      const updated = await res.json();
-      if (onUpdateUser) onUpdateUser({ ...user, ...updated, bio: form.bio });
+      if (onUpdateUser) onUpdateUser({
+  ...user,
+  ...updated,
+  name: form.name,   // keep what user typed
+  skill: form.skill,
+  bio: form.bio,
+});
       setSaved(true);
       setEditing(false);
       setTimeout(() => setSaved(false), 2500);

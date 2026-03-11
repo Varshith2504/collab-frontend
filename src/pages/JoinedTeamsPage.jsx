@@ -7,11 +7,12 @@ import { useEffect, useState } from "react";
 
 async function fetchJoinedProjects(userEmail) {
   try {
-    const res  = await fetch("http://localhost:8080/projects");
-    const all  = await res.json();
-    // Filter: not owned by user, but user is in members list
-    // If your backend has a /team endpoint, prefer that
-    const joined = all.filter(p => p.owner !== userEmail && p.members > 0);
+   const res = await fetch(`${BASE_URL}/projects`);  // also fix localhost here!
+const all = await res.json();
+const joined = all.filter(p =>
+  p.owner !== userEmail &&
+  Array.isArray(p.memberEmails) && p.memberEmails.includes(userEmail)
+);
     return joined;
   } catch {
     return [];

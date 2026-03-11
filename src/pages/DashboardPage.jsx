@@ -7,7 +7,7 @@ import {
 /* ── helper: fetch team members for a project ── */
 async function fetchTeamMembers(projectId) {
   try {
-    const res = await fetch(`http://localhost:8080/projects/${projectId}/members`);
+    const res = await fetch(`${BASE_URL}/projects/${projectId}/members`);
     if (!res.ok) return [];
     return await res.json();
   } catch {
@@ -17,7 +17,7 @@ async function fetchTeamMembers(projectId) {
 
 async function removeTeamMember(projectId, memberId) {
   try {
-    await fetch(`http://localhost:8080/projects/${projectId}/members/${memberId}`, {
+    await fetch(`${BASE_URL}/projects/${projectId}/members/${memberId}`, {
       method: "DELETE"
     });
     return true;
