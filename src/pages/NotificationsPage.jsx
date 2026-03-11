@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 
+const BASE_URL = "https://collab-backend-production-a2b8.up.railway.app";
+
 function timeAgo(ms) {
   const diff = Date.now() - ms;
   const mins = Math.floor(diff / 60000);
@@ -18,8 +20,8 @@ const TYPE_META = {
   system:       { icon: "⚡", color: "#3b82f6", label: "System"       },
 };
 
-/* localStorage key for persisted notifications */
-const STORAGE_KEY = (email) => `collab_notifs_${email}`;
+const STORAGE_KEY  = (email) => `collab_notifs_${email}`;
+const DISMISSED_KEY = (email) => `collab_dismissed_${email}`;
 
 function loadSaved(email) {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY(email)) || "[]"); }
@@ -27,7 +29,15 @@ function loadSaved(email) {
 }
 function savePersisted(email, notifs) {
   try { localStorage.setItem(STORAGE_KEY(email), JSON.stringify(notifs.slice(0, 100))); }
-  catch { /* ignore */ }
+  catch {}
+}
+function loadDismissed(email) {
+  try { return new Set(JSON.parse(localStorage.getItem(DISMISSED_KEY(email)) || "[]")); }
+  catch { return new Set(); }
+}
+function saveDismissed(email, set) {
+  try { localStorage.setItem(DISMISSED_KEY(email), JSON.stringify([...set])); }
+  catch {}
 }
 
 export default function NotificationsPage({ user }) {
@@ -35,7 +45,6 @@ export default function NotificationsPage({ user }) {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter]   = useState("all");
 
-  /* ── Merge new notifications without losing existing ones ── */
   const mergeNotifs = useCallback((fresh) => {
     setNotifs(prev => {
       const existingIds = new Set(prev.map(n => n.id));
@@ -46,76 +55,88 @@ export default function NotificationsPage({ user }) {
     });
   }, [user.email]);
 
-  /* ── Fetch live notifications from backend ── */
   const fetchNotifs = useCallback(async () => {
     setLoading(true);
     try {
-      const projRes = await fetch(`${BASE_URL}/projects`);
+      const projRes  = await fetch(`${BASE_URL}/projects`);
       const allProjs = await projRes.json();
       const mine     = allProjs.filter(p => p.owner === user.email);
 
       const fresh = [];
+      const dismissed = loadDismissed(user.email);
 
       await Promise.all(mine.map(async (p) => {
         try {
-          /* Pending join requests → "join_request" notification */
-          const reqRes  = await fetch(`${BASE_URL}/projects/${p.id}/requests`);
+          /* Pending join requests */
+          const reqRes = await fetch(`${BASE_URL}/projects/${p.id}/requests`);
           const reqs   = await reqRes.json();
           reqs.forEach(r => {
-            fresh.push({
-              id:      `req-${r.id}`,
-              type:    "join_request",
-              title:   "New Join Request",
-              message: `${r.name} wants to join "${p.name}"`,
-              detail:  r.skills ? `Skills: ${r.skills}` : r.experience ? `"${r.experience}"` : null,
-              time:    Date.now() - 60000, // treat as recent
-              read:    false,
-            });
+            const id = `req-${r.id}`;
+            if (!dismissed.has(id)) {
+              fresh.push({
+                id,
+                type:    "join_request",
+                title:   "New Join Request",
+                message: `${r.name} wants to join "${p.name}"`,
+                detail:  r.skills ? `Skills: ${r.skills}` : r.experience ? `"${r.experience}"` : null,
+                time:    Date.now() - 60000,
+                read:    false,
+              });
+            }
           });
 
-          /* Team full → notification */
+          /* Team full */
           if (p.members > 0 && p.members >= p.maxMembers) {
-            fresh.push({
-              id:      `full-${p.id}`,
-              type:    "team_full",
-              title:   "🎉 Team is Full!",
-              message: `"${p.name}" has reached its max capacity of ${p.maxMembers} members.`,
-              detail:  null,
-              time:    Date.now() - 3600000,
-              read:    false,
-            });
+            const id = `full-${p.id}`;
+            if (!dismissed.has(id)) {
+              fresh.push({
+                id,
+                type:    "team_full",
+                title:   "🎉 Team is Full!",
+                message: `"${p.name}" has reached its max capacity of ${p.maxMembers} members.`,
+                detail:  null,
+                time:    Date.now() - 3600000,
+                read:    false,
+              });
+            }
           }
 
-          /* Current accepted members → "accepted" notification */
+          /* Accepted members */
           try {
             const memRes  = await fetch(`${BASE_URL}/projects/${p.id}/members`);
             const members = await memRes.json();
             members.forEach(m => {
-              fresh.push({
-                id:      `acc-${p.id}-${m.id}`,
-                type:    "accepted",
-                title:   "Member Accepted ✅",
-                message: `${m.name || m.email} joined your project "${p.name}"`,
-                detail:  m.skill ? `Skill: ${m.skill}` : null,
-                time:    Date.now() - 7200000,
-                read:    false,
-              });
+              const id = `acc-${p.id}-${m.id}`;
+              if (!dismissed.has(id)) {
+                fresh.push({
+                  id,
+                  type:    "accepted",
+                  title:   "Member Accepted ✅",
+                  message: `${m.name || m.email} joined your project "${p.name}"`,
+                  detail:  m.skill ? `Skill: ${m.skill}` : null,
+                  time:    Date.now() - 7200000,
+                  read:    false,
+                });
+              }
             });
-          } catch { /* members endpoint may not exist yet */ }
+          } catch {}
 
-        } catch { /* ignore per-project errors */ }
+        } catch {}
       }));
 
-      /* System welcome notification */
-      fresh.push({
-        id:      "sys-welcome",
-        type:    "system",
-        title:   "Welcome to CollabHub ⚡",
-        message: "Your account is active. Start exploring projects or create your own!",
-        detail:  null,
-        time:    Date.now() - 86400000 * 3,
-        read:    true,
-      });
+      /* System welcome */
+      const welcomeId = "sys-welcome";
+      if (!dismissed.has(welcomeId)) {
+        fresh.push({
+          id:      welcomeId,
+          type:    "system",
+          title:   "Welcome to CollabHub ⚡",
+          message: "Your account is active. Start exploring projects or create your own!",
+          detail:  null,
+          time:    Date.now() - 86400000 * 3,
+          read:    true,
+        });
+      }
 
       mergeNotifs(fresh);
     } catch (e) {
@@ -126,11 +147,28 @@ export default function NotificationsPage({ user }) {
 
   useEffect(() => { fetchNotifs(); }, [fetchNotifs]);
 
-  /* ── Actions ── */
-  const markRead    = (id)  => setNotifs(n => { const u = n.map(x => x.id === id ? { ...x, read: true } : x); savePersisted(user.email, u); return u; });
-  const markAllRead = ()    => setNotifs(n => { const u = n.map(x => ({ ...x, read: true }));                   savePersisted(user.email, u); return u; });
-  const dismiss     = (id)  => setNotifs(n => { const u = n.filter(x => x.id !== id);                           savePersisted(user.email, u); return u; });
-  const clearAll    = ()    => { setNotifs([]); savePersisted(user.email, []); };
+  const markRead = (id) =>
+    setNotifs(n => { const u = n.map(x => x.id === id ? { ...x, read: true } : x); savePersisted(user.email, u); return u; });
+
+  const markAllRead = () =>
+    setNotifs(n => { const u = n.map(x => ({ ...x, read: true })); savePersisted(user.email, u); return u; });
+
+  // Persist dismissed IDs so they don't reappear on refresh
+  const dismiss = (id) => {
+    setNotifs(n => { const u = n.filter(x => x.id !== id); savePersisted(user.email, u); return u; });
+    const d = loadDismissed(user.email);
+    d.add(id);
+    saveDismissed(user.email, d);
+  };
+
+  const clearAll = () => {
+    // Mark all current notif IDs as dismissed
+    const d = loadDismissed(user.email);
+    notifs.forEach(n => d.add(n.id));
+    saveDismissed(user.email, d);
+    setNotifs([]);
+    savePersisted(user.email, []);
+  };
 
   const unread  = notifs.filter(n => !n.read).length;
   const visible = filter === "all"
@@ -140,11 +178,11 @@ export default function NotificationsPage({ user }) {
     : notifs.filter(n => n.type === filter);
 
   const filterOptions = [
-    { key: "all",          label: `All (${notifs.length})`                              },
-    { key: "unread",       label: `Unread (${unread})`                                  },
-    { key: "join_request", label: `Requests (${notifs.filter(n=>n.type==="join_request").length})` },
-    { key: "accepted",     label: `Accepted (${notifs.filter(n=>n.type==="accepted").length})`     },
-    { key: "team_full",    label: `Team Full (${notifs.filter(n=>n.type==="team_full").length})`   },
+    { key: "all",          label: `All (${notifs.length})` },
+    { key: "unread",       label: `Unread (${unread})` },
+    { key: "join_request", label: `Requests (${notifs.filter(n => n.type === "join_request").length})` },
+    { key: "accepted",     label: `Accepted (${notifs.filter(n => n.type === "accepted").length})` },
+    { key: "team_full",    label: `Team Full (${notifs.filter(n => n.type === "team_full").length})` },
   ];
 
   return (
@@ -166,36 +204,27 @@ export default function NotificationsPage({ user }) {
           border: 1px solid var(--border);
           background: var(--bg3); color: var(--text-muted);
           font-size: 0.78rem; font-weight: 600; cursor: pointer;
-          transition: all 0.15s;
-          white-space: nowrap;
+          transition: all 0.15s; white-space: nowrap;
         }
         .np-filter-btn.active, .np-filter-btn:hover {
           background: var(--accent, #7c5cfc);
           color: #fff; border-color: var(--accent, #7c5cfc);
         }
-
         .np-item {
           display: flex; align-items: flex-start; gap: 1rem;
-          padding: 1.1rem 1.25rem;
-          border-radius: 16px;
-          border: 1px solid var(--border);
-          background: var(--bg2);
+          padding: 1.1rem 1.25rem; border-radius: 16px;
+          border: 1px solid var(--border); background: var(--bg2);
           transition: transform 0.15s, border-color 0.15s;
           position: relative; cursor: pointer;
           animation: fadeUp 0.3s ease both;
         }
         .np-item:hover { transform: translateX(4px); border-color: rgba(124,92,252,0.4); }
-        .np-item.unread {
-          background: var(--bg3);
-          border-color: rgba(124,92,252,0.3);
-        }
+        .np-item.unread { background: var(--bg3); border-color: rgba(124,92,252,0.3); }
         .np-item.unread::before {
-          content: '';
-          position: absolute; left: 0; top: 50%; transform: translateY(-50%);
-          width: 3px; height: 55%; border-radius: 0 3px 3px 0;
-          background: var(--accent, #7c5cfc);
+          content: ''; position: absolute; left: 0; top: 50%;
+          transform: translateY(-50%); width: 3px; height: 55%;
+          border-radius: 0 3px 3px 0; background: var(--accent, #7c5cfc);
         }
-
         .np-icon {
           width: 44px; height: 44px; border-radius: 50%;
           display: flex; align-items: center; justify-content: center;
@@ -217,34 +246,18 @@ export default function NotificationsPage({ user }) {
           border: 1px solid var(--border); background: var(--bg3); color: var(--text-muted);
           transition: all 0.15s;
         }
-        .np-btn:hover        { background: var(--bg2); color: var(--text); }
+        .np-btn:hover         { background: var(--bg2); color: var(--text); }
         .np-btn.dismiss:hover { background: rgba(249,112,102,0.15); border-color: #f97066; color: #f97066; }
-
-        .np-unread-dot {
-          width: 9px; height: 9px; border-radius: 50%;
-          flex-shrink: 0; margin-top: 0.35rem;
-        }
-
-        .np-empty {
-          text-align: center; padding: 4rem 2rem; color: var(--text-muted);
-        }
-        .np-empty-icon {
-          font-size: 3.5rem; margin-bottom: 1rem;
-          animation: floatIcon 3s ease-in-out infinite;
-        }
-        @keyframes floatIcon {
-          0%,100% { transform: translateY(0); }
-          50%      { transform: translateY(-10px); }
-        }
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(10px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
+        .np-unread-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; margin-top: 0.35rem; }
+        .np-empty { text-align: center; padding: 4rem 2rem; color: var(--text-muted); }
+        .np-empty-icon { font-size: 3.5rem; margin-bottom: 1rem; animation: floatIcon 3s ease-in-out infinite; }
+        @keyframes floatIcon { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
 
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
 
-        {/* ── Header ── */}
+        {/* Header */}
         <div className="np-header">
           <div>
             <div className="section-title">🔔 Notifications</div>
@@ -271,7 +284,7 @@ export default function NotificationsPage({ user }) {
           </div>
         </div>
 
-        {/* ── Filters ── */}
+        {/* Filters */}
         <div className="np-filters">
           {filterOptions.map(f => (
             <button
@@ -283,7 +296,7 @@ export default function NotificationsPage({ user }) {
           ))}
         </div>
 
-        {/* ── List ── */}
+        {/* List */}
         {loading ? (
           <div className="empty-state">
             <div className="empty-icon" style={{ animation: "pulse 1.2s infinite" }}>⏳</div>
@@ -306,12 +319,10 @@ export default function NotificationsPage({ user }) {
                   style={{ animationDelay: `${i * 0.04}s` }}
                   onClick={() => markRead(n.id)}>
 
-                  {/* Icon */}
                   <div className="np-icon" style={{ background: meta.color + "20" }}>
                     {meta.icon}
                   </div>
 
-                  {/* Body */}
                   <div className="np-body">
                     <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem", flexWrap: "wrap" }}>
                       <div className="np-title">{n.title}</div>
@@ -331,7 +342,6 @@ export default function NotificationsPage({ user }) {
                     </div>
                   </div>
 
-                  {/* Unread dot */}
                   {!n.read && (
                     <div className="np-unread-dot" style={{ background: meta.color }} />
                   )}
