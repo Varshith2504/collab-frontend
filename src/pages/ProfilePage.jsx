@@ -25,6 +25,11 @@ export default function ProfilePage({ user, onUpdateUser }) {
   const [error, setError]     = useState("");
   const [stats, setStats]     = useState({ projectsOwned: 0, projectsJoined: 0, requestsSent: 0 });
 
+  // Re-sync form when user prop changes (e.g. after parent re-renders)
+  useEffect(() => {
+    setForm({ name: user.name || "", skill: user.skill || "", bio: user.bio || "" });
+  }, [user.id]);
+
   useEffect(() => {
     fetch(`${BASE_URL}/projects`)
       .then(r => r.json())
@@ -33,11 +38,6 @@ export default function ProfilePage({ user, onUpdateUser }) {
         setStats(s => ({ ...s, projectsOwned: owned }));
       }).catch(() => {});
   }, [user.email]);
-
-  // Add this useEffect in ProfilePage
-useEffect(() => {
-  setForm({ name: user.name || "", skill: user.skill || "", bio: user.bio || "" });
-}, [user.id]); // re-sync when user changes
 
   const handle = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -50,13 +50,15 @@ useEffect(() => {
         body: JSON.stringify({ ...user, name: form.name, skill: form.skill, bio: form.bio })
       });
       if (!res.ok) throw new Error("Failed");
+      const updated = await res.json();
+      // Always use form values — backend response may not return all fields (e.g. bio)
       if (onUpdateUser) onUpdateUser({
-  ...user,
-  ...updated,
-  name: form.name,   // keep what user typed
-  skill: form.skill,
-  bio: form.bio,
-});
+        ...user,
+        ...updated,
+        name:  form.name,
+        skill: form.skill,
+        bio:   form.bio,
+      });
       setSaved(true);
       setEditing(false);
       setTimeout(() => setSaved(false), 2500);

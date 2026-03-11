@@ -1,18 +1,28 @@
 import { useEffect, useState } from "react";
 
-/* 
-  Shows all projects where the current user is a team member (not the owner).
-  Fetches all projects and checks member lists, or queries /team endpoint.
-*/
+const BASE_URL = "https://collab-backend-production-a2b8.up.railway.app";
 
 async function fetchJoinedProjects(userEmail) {
   try {
-   const res = await fetch(`${BASE_URL}/projects`);  // also fix localhost here!
-const all = await res.json();
-const joined = all.filter(p =>
-  p.owner !== userEmail &&
-  Array.isArray(p.memberEmails) && p.memberEmails.includes(userEmail)
-);
+    const res  = await fetch(`${BASE_URL}/projects`);
+    const all  = await res.json();
+
+    // For each project the user doesn't own, check if they're in the members list
+    const joined = [];
+    await Promise.all(
+      all
+        .filter(p => p.owner !== userEmail)
+        .map(async p => {
+          try {
+            const memRes  = await fetch(`${BASE_URL}/projects/${p.id}/members`);
+            const members = await memRes.json();
+            const isMember = Array.isArray(members) && members.some(m => m.email === userEmail);
+            if (isMember) joined.push(p);
+          } catch {
+            // skip if members endpoint fails for this project
+          }
+        })
+    );
     return joined;
   } catch {
     return [];
@@ -76,7 +86,6 @@ export default function JoinedTeamsPage({ user }) {
           transform: translateY(-50%); color: var(--text-muted);
           font-size: 0.85rem; pointer-events: none;
         }
-
         .jt-card {
           background: var(--bg2); border: 1px solid var(--border);
           border-radius: 20px; overflow: hidden;
@@ -88,9 +97,7 @@ export default function JoinedTeamsPage({ user }) {
           border-color: rgba(124,92,252,0.4);
           box-shadow: 0 12px 40px rgba(0,0,0,0.2);
         }
-        .jt-card-top {
-          padding: 1.4rem 1.5rem 1rem;
-        }
+        .jt-card-top { padding: 1.4rem 1.5rem 1rem; }
         .jt-card-row {
           display: flex; justify-content: space-between;
           align-items: flex-start; gap: 1rem; flex-wrap: wrap;
@@ -109,10 +116,7 @@ export default function JoinedTeamsPage({ user }) {
           text-transform: uppercase; letter-spacing: 0.5px;
           flex-shrink: 0;
         }
-        .jt-status-dot {
-          width: 6px; height: 6px; border-radius: 50%;
-        }
-
+        .jt-status-dot { width: 6px; height: 6px; border-radius: 50%; }
         .jt-footer {
           background: var(--bg3);
           border-top: 1px solid var(--border);
@@ -130,7 +134,6 @@ export default function JoinedTeamsPage({ user }) {
           display: flex; align-items: center; justify-content: center;
           font-size: 0.7rem; font-weight: 700; color: #fff; flex-shrink: 0;
         }
-
         .jt-expand-panel {
           padding: 1.25rem 1.5rem;
           border-top: 1px dashed var(--border);
@@ -143,10 +146,7 @@ export default function JoinedTeamsPage({ user }) {
           font-size: 0.85rem;
         }
         .jt-detail-row:last-child { border-bottom: none; }
-
-        .empty-joined {
-          text-align: center; padding: 4rem 2rem;
-        }
+        .empty-joined { text-align: center; padding: 4rem 2rem; }
         .empty-joined-icon {
           font-size: 4rem; margin-bottom: 1rem;
           animation: float 3s ease-in-out infinite;
@@ -159,7 +159,6 @@ export default function JoinedTeamsPage({ user }) {
           from { opacity:0; transform: translateY(14px); }
           to   { opacity:1; transform: translateY(0); }
         }
-
         .grid-2 {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
@@ -231,14 +230,13 @@ export default function JoinedTeamsPage({ user }) {
         ) : (
           <div className="grid-2">
             {filtered.map((project, i) => {
-              const status  = getStatus(project);
-              const fill    = fillPercent(project);
-              const isOpen  = expanded === project.id;
+              const status = getStatus(project);
+              const fill   = fillPercent(project);
+              const isOpen = expanded === project.id;
 
               return (
                 <div key={project.id} className="jt-card card-glow" style={{ animationDelay: `${i * 0.06}s` }}>
 
-                  {/* Top section */}
                   <div className="jt-card-top">
                     <div className="jt-card-row">
                       <div style={{ flex: 1 }}>
@@ -249,7 +247,6 @@ export default function JoinedTeamsPage({ user }) {
                           {project.description || "No description provided."}
                         </div>
                       </div>
-                      {/* Status badge */}
                       <div
                         className="jt-status-badge"
                         style={{
@@ -317,11 +314,11 @@ export default function JoinedTeamsPage({ user }) {
                         Project Details
                       </div>
                       {[
-                        { label: "Project ID",   val: `#${project.id}` },
-                        { label: "Owner",         val: project.owner || "—" },
-                        { label: "Total Members", val: `${project.members} / ${project.maxMembers}` },
-                        { label: "Required Skills", val: project.skills || "—" },
-                        { label: "Status",        val: status === "full" ? "🎉 Team Full" : "🟢 Active & Open" },
+                        { label: "Project ID",      val: `#${project.id}` },
+                        { label: "Owner",            val: project.owner || "—" },
+                        { label: "Total Members",    val: `${project.members} / ${project.maxMembers}` },
+                        { label: "Required Skills",  val: project.skills || "—" },
+                        { label: "Status",           val: status === "full" ? "🎉 Team Full" : "🟢 Active & Open" },
                       ].map(row => (
                         <div key={row.label} className="jt-detail-row">
                           <span style={{ color: "var(--text-muted)" }}>{row.label}</span>

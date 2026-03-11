@@ -4,7 +4,8 @@ import {
   rejectRequest, deleteProject
 } from "../services/apiService";
 
-/* ── helper: fetch team members for a project ── */
+const BASE_URL = "https://collab-backend-production-a2b8.up.railway.app";
+
 async function fetchTeamMembers(projectId) {
   try {
     const res = await fetch(`${BASE_URL}/projects/${projectId}/members`);
@@ -27,13 +28,13 @@ async function removeTeamMember(projectId, memberId) {
 }
 
 export default function DashboardPage({ user }) {
-  const [myProjects, setMyProjects]     = useState([]);
-  const [requestsMap, setRequestsMap]   = useState({});
-  const [membersMap, setMembersMap]     = useState({});
-  const [loading, setLoading]           = useState(true);
-  const [expandedId, setExpandedId]     = useState(null);
-  const [activeTab, setActiveTab]       = useState({}); // { [projectId]: "requests" | "members" }
-  const [actionMsg, setActionMsg]       = useState("");
+  const [myProjects, setMyProjects]   = useState([]);
+  const [requestsMap, setRequestsMap] = useState({});
+  const [membersMap, setMembersMap]   = useState({});
+  const [loading, setLoading]         = useState(true);
+  const [expandedId, setExpandedId]   = useState(null);
+  const [activeTab, setActiveTab]     = useState({});
+  const [actionMsg, setActionMsg]     = useState("");
 
   useEffect(() => { load(); }, []);
 
@@ -128,16 +129,16 @@ export default function DashboardPage({ user }) {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
             {myProjects.map(project => {
-              const reqs      = requestsMap[project.id] || [];
-              const members   = membersMap[project.id]  || [];
+              const reqs       = requestsMap[project.id] || [];
+              const members    = membersMap[project.id]  || [];
               const isExpanded = expandedId === project.id;
               const tab        = activeTab[project.id] || "requests";
-              const fillPct   = Math.round((project.members / project.maxMembers) * 100);
+              const fillPct    = Math.round((project.members / project.maxMembers) * 100);
 
               return (
                 <div key={project.id} className="card card-glow">
 
-                  {/* ── Project summary row ── */}
+                  {/* Project summary row */}
                   <div
                     className="flex-between"
                     style={{ flexWrap: "wrap", gap: "0.75rem", cursor: "pointer" }}
@@ -164,7 +165,6 @@ export default function DashboardPage({ user }) {
                     </div>
 
                     <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", minWidth: 150 }}>
-                      {/* Progress bar */}
                       <div>
                         <div className="flex-between" style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginBottom: "0.3rem" }}>
                           <span>Members</span>
@@ -175,7 +175,6 @@ export default function DashboardPage({ user }) {
                         </div>
                       </div>
 
-                      {/* Action buttons */}
                       <div style={{ display: "flex", gap: "0.4rem" }} onClick={e => e.stopPropagation()}>
                         <button
                           className="btn btn-secondary btn-sm"
@@ -190,7 +189,7 @@ export default function DashboardPage({ user }) {
                     </div>
                   </div>
 
-                  {/* ── Expanded panel ── */}
+                  {/* Expanded panel */}
                   {isExpanded && (
                     <div style={{ marginTop: "1.25rem", borderTop: "1px solid var(--border)", paddingTop: "1.25rem" }}>
 
@@ -218,7 +217,7 @@ export default function DashboardPage({ user }) {
                         </button>
                       </div>
 
-                      {/* ── REQUESTS TAB ── */}
+                      {/* REQUESTS TAB */}
                       {tab === "requests" && (
                         reqs.length === 0 ? (
                           <div style={{ color: "var(--text-muted)", fontSize: "0.88rem", textAlign: "center", padding: "1.5rem 0" }}>
@@ -271,7 +270,7 @@ export default function DashboardPage({ user }) {
                         )
                       )}
 
-                      {/* ── TEAM MEMBERS TAB ── */}
+                      {/* TEAM MEMBERS TAB */}
                       {tab === "members" && (
                         members.length === 0 ? (
                           <div style={{ color: "var(--text-muted)", fontSize: "0.88rem", textAlign: "center", padding: "1.5rem 0" }}>
@@ -287,7 +286,6 @@ export default function DashboardPage({ user }) {
                                 alignItems: "center", gap: "1rem", flexWrap: "wrap"
                               }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: "0.85rem", flex: 1 }}>
-                                  {/* Avatar */}
                                   <div style={{
                                     width: 42, height: 42, borderRadius: "50%",
                                     background: "linear-gradient(135deg, #7c5cfc, #f97066)",
@@ -296,7 +294,6 @@ export default function DashboardPage({ user }) {
                                   }}>
                                     {(member.name || member.email || "?").charAt(0).toUpperCase()}
                                   </div>
-
                                   <div>
                                     <div style={{ fontWeight: 700, marginBottom: "0.15rem" }}>
                                       {member.name || "—"}
@@ -316,8 +313,6 @@ export default function DashboardPage({ user }) {
                                     )}
                                   </div>
                                 </div>
-
-                                {/* Remove button */}
                                 <button
                                   className="btn btn-danger btn-sm"
                                   onClick={() => handleRemoveMember(project, member)}
