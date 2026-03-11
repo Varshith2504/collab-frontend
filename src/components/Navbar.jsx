@@ -1,14 +1,16 @@
 import { useState, useRef, useEffect } from "react";
 
+const BASE_URL = "https://collab-backend-production-a2b8.up.railway.app";
+
 async function fetchUnreadCount(userEmail) {
   try {
-    const res  = await fetch("http://localhost:8080/projects");
+    const res  = await fetch(`${BASE_URL}/projects`);
     const all  = await res.json();
     const mine = all.filter(p => p.owner === userEmail);
     let count  = 0;
     await Promise.all(mine.map(async p => {
       try {
-        const r    = await fetch(`http://localhost:8080/projects/${p.id}/requests`);
+        const r    = await fetch(`${BASE_URL}/projects/${p.id}/requests`);
         const reqs = await r.json();
         count += reqs.length;
       } catch { /* ignore */ }
@@ -24,7 +26,6 @@ export default function Navbar({ user, page, setPage, onLogout, theme, toggleThe
   const dropRef   = useRef(null);
   const mobileRef = useRef(null);
 
-  /* ── Poll every 15s ── */
   useEffect(() => {
     if (!user?.email) return;
     const poll = async () => setLiveCount(await fetchUnreadCount(user.email));
@@ -33,13 +34,11 @@ export default function Navbar({ user, page, setPage, onLogout, theme, toggleThe
     return () => clearInterval(id);
   }, [user?.email]);
 
-  /* ── Clear dot on notifications page ── */
   useEffect(() => {
     if (page === "notifications") setLiveCount(0);
-    setMobileOpen(false); // close mobile menu on page change
+    setMobileOpen(false);
   }, [page]);
 
-  /* ── Outside click ── */
   useEffect(() => {
     const handler = (e) => {
       if (dropRef.current   && !dropRef.current.contains(e.target))   setDropdownOpen(false);
@@ -52,9 +51,9 @@ export default function Navbar({ user, page, setPage, onLogout, theme, toggleThe
   const navTo = (p) => { setPage(p); setDropdownOpen(false); setMobileOpen(false); };
 
   const navLinks = [
-    { key: "projects",  label: "🚀 Projects"    },
-    { key: "create",    label: "+ New Project"  },
-    { key: "dashboard", label: "📋 Dashboard"   },
+    { key: "projects",  label: "🚀 Projects"   },
+    { key: "create",    label: "+ New Project" },
+    { key: "dashboard", label: "📋 Dashboard"  },
   ];
 
   return (
@@ -62,7 +61,6 @@ export default function Navbar({ user, page, setPage, onLogout, theme, toggleThe
       <nav className="navbar" ref={mobileRef}>
         <div className="navbar-brand">⚡ CollabHub</div>
 
-        {/* ── Desktop nav links ── */}
         <div className="navbar-actions">
           {navLinks.map(l => (
             <button key={l.key}
@@ -72,17 +70,6 @@ export default function Navbar({ user, page, setPage, onLogout, theme, toggleThe
             </button>
           ))}
 
-          {/* Bell */}
-          <button
-            className={`nav-bell-btn ${page === "notifications" ? "active" : ""}`}
-            onClick={() => setPage("notifications")}
-            title="Notifications">
-            <span>🔔</span>
-            {liveCount > 0 && (
-              <span className="nav-bell-dot">{liveCount > 9 ? "9+" : liveCount}</span>
-            )}
-          </button>
-
           {/* Theme */}
           <button className="theme-toggle" onClick={toggleTheme} title="Toggle theme">
             {theme === "dark" ? "☀️" : "🌙"}
@@ -90,9 +77,7 @@ export default function Navbar({ user, page, setPage, onLogout, theme, toggleThe
 
           {/* Profile dropdown */}
           <div className="nav-profile-wrap" ref={dropRef}>
-            <button
-              className="nav-profile-btn"
-              onClick={() => setDropdownOpen(o => !o)}>
+            <button className="nav-profile-btn" onClick={() => setDropdownOpen(o => !o)}>
               <div className="nav-avatar">{user.name?.charAt(0).toUpperCase() || "U"}</div>
               <span className="nav-username">{user.name}</span>
               <span className="nav-chevron" style={{ transform: dropdownOpen ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.2s" }}>▾</span>
@@ -128,11 +113,8 @@ export default function Navbar({ user, page, setPage, onLogout, theme, toggleThe
             )}
           </div>
 
-          {/* Hamburger — only visible on mobile via CSS */}
-          <button
-            className="navbar-hamburger"
-            onClick={() => setMobileOpen(o => !o)}
-            aria-label="Menu">
+          {/* Hamburger — mobile only */}
+          <button className="navbar-hamburger" onClick={() => setMobileOpen(o => !o)} aria-label="Menu">
             <span style={{ transform: mobileOpen ? "rotate(45deg) translate(5px,5px)" : "none" }} />
             <span style={{ opacity: mobileOpen ? 0 : 1 }} />
             <span style={{ transform: mobileOpen ? "rotate(-45deg) translate(5px,-5px)" : "none" }} />
@@ -140,7 +122,7 @@ export default function Navbar({ user, page, setPage, onLogout, theme, toggleThe
         </div>
       </nav>
 
-      {/* ── Mobile drawer ── */}
+      {/* Mobile drawer */}
       <div className={`navbar-mobile-menu ${mobileOpen ? "open" : ""}`}>
         {navLinks.map(l => (
           <button key={l.key}
@@ -157,8 +139,7 @@ export default function Navbar({ user, page, setPage, onLogout, theme, toggleThe
           🔔 Notifications
           {liveCount > 0 && (
             <span style={{
-              marginLeft: "auto",
-              background: "#f97066", color: "#fff",
+              marginLeft: "auto", background: "#f97066", color: "#fff",
               borderRadius: "50px", fontSize: "0.68rem", fontWeight: 800,
               padding: "0.1rem 0.45rem"
             }}>{liveCount > 9 ? "9+" : liveCount}</span>
@@ -166,12 +147,10 @@ export default function Navbar({ user, page, setPage, onLogout, theme, toggleThe
         </button>
 
         <div style={{ height: 1, background: "var(--border)", margin: "0.25rem 0" }} />
-
         <button className={`btn btn-secondary ${page === "profile" ? "btn-primary" : ""}`}
           onClick={() => navTo("profile")}>👤 My Profile</button>
         <button className={`btn btn-secondary ${page === "joined" ? "btn-primary" : ""}`}
           onClick={() => navTo("joined")}>🤝 Joined Teams</button>
-
         <div style={{ height: 1, background: "var(--border)", margin: "0.25rem 0" }} />
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.25rem 0" }}>
@@ -184,37 +163,11 @@ export default function Navbar({ user, page, setPage, onLogout, theme, toggleThe
       </div>
 
       <style>{`
-        /* Bell */
-        .nav-bell-btn {
-          position: relative; display: flex; align-items: center; justify-content: center;
-          width: 38px; height: 38px; border-radius: 50%;
-          background: var(--bg3); border: 1px solid var(--border);
-          cursor: pointer; transition: all 0.18s; flex-shrink: 0; font-size: 1rem;
-        }
-        .nav-bell-btn:hover, .nav-bell-btn.active {
-          border-color: var(--accent); background: var(--bg2);
-        }
-        .nav-bell-dot {
-          position: absolute; top: -5px; right: -5px;
-          min-width: 19px; height: 19px; border-radius: 50px;
-          background: #f97066; color: #fff;
-          font-size: 0.62rem; font-weight: 800;
-          display: flex; align-items: center; justify-content: center;
-          border: 2px solid var(--bg); padding: 0 3px;
-          animation: popIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
-          pointer-events: none;
-        }
-        @keyframes popIn {
-          from { transform: scale(0); opacity: 0; }
-          to   { transform: scale(1); opacity: 1; }
-        }
         .nav-inline-badge {
           background: #f97066; color: #fff; border-radius: 50px;
           font-size: 0.68rem; font-weight: 800;
           padding: 0.1rem 0.45rem; min-width: 18px; text-align: center;
         }
-
-        /* Profile */
         .nav-profile-wrap { position: relative; }
         .nav-profile-btn {
           display: flex; align-items: center; gap: 0.5rem;
@@ -232,8 +185,6 @@ export default function Navbar({ user, page, setPage, onLogout, theme, toggleThe
         }
         .nav-username { max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .nav-chevron  { font-size: 0.7rem; opacity: 0.7; }
-
-        /* Dropdown */
         .nav-dropdown {
           position: absolute; top: calc(100% + 10px); right: 0;
           min-width: 235px; background: var(--bg2);
@@ -244,7 +195,7 @@ export default function Navbar({ user, page, setPage, onLogout, theme, toggleThe
         }
         @keyframes dropIn {
           from { opacity: 0; transform: translateY(-8px) scale(0.97); }
-          to   { opacity: 1; transform: translateY(0)    scale(1); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
         }
         .nav-dropdown-header { display: flex; align-items: center; gap: 0.75rem; padding: 1rem 1rem 0.85rem; }
         .nav-dropdown-avatar {
@@ -266,11 +217,8 @@ export default function Navbar({ user, page, setPage, onLogout, theme, toggleThe
         .nav-dropdown-item > span:first-child { font-size: 1rem; width: 20px; text-align: center; }
         .nav-dropdown-danger { color: #f97066 !important; margin-bottom: 0.25rem; }
         .nav-dropdown-danger:hover { background: rgba(249,112,102,0.1) !important; }
-
-        /* Mobile specific overrides */
         @media (max-width: 767px) {
           .nav-profile-btn { display: none; }
-          .nav-bell-btn    { display: none; }
           .theme-toggle    { display: none; }
           .navbar-hamburger { display: flex !important; }
         }
